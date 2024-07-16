@@ -36,7 +36,7 @@ void runWithoutCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int n
   int threadsPerBlock = 256;
   int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
 
-  for (int iter = 0; iter < 100; ++iter) {
+  for (int iter = 0; iter < 1000; ++iter) {
     // Multiply each element in buff by 0.26
     for (int i = 0; i < nDev; ++i) {
       CUDACHECK(cudaSetDevice(i));
@@ -89,7 +89,7 @@ void runWithCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev
   CUDACHECK(cudaStreamCreate(&captureStream));
   CUDACHECK(cudaStreamBeginCapture(captureStream, cudaStreamCaptureModeGlobal));
 
-  for (int iter = 0; iter < 100; ++iter) {
+  for (int iter = 0; iter < 1000; ++iter) {
     // put fork event in main stream
     cudaEventRecord(captureStreamFork1Event, captureStream);
 
@@ -162,11 +162,20 @@ void printBufferValues(float** buff, float* hostBuff, int nDev, int size, const 
 
 int main(int argc, char* argv[])
 {
+  if (argc != 2) {
+    printf("Usage: %s <bs>\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+  int bs = atoi(argv[1]);
+  if (bs <= 0) {
+    printf("Error: bs must be a positive integer\n");
+    return EXIT_FAILURE;
+  }
   ncclComm_t comms[4];
 
   // managing 4 devices
   int nDev = 4;
-  int size = 32*1024*1024;
+  int size = bs * 4096;
   int devs[4] = { 0, 1, 2, 3 };
 
   // allocating and initializing device buffers
@@ -192,7 +201,7 @@ int main(int argc, char* argv[])
 
   // Run without CUDA graph
   runWithoutCudaGraph(buff, s, comms, nDev, size);
-  printBufferValues(buff, printBuff, nDev, size, "Without CUDA graph");
+  // printBufferValues(buff, printBuff, nDev, size, "Without CUDA graph");
 
   // Reset buffers
   for (int i = 0; i < nDev; ++i) {
@@ -202,7 +211,7 @@ int main(int argc, char* argv[])
 
   // Run with CUDA graph
   runWithCudaGraph(buff, s, comms, nDev, size);
-  printBufferValues(buff, printBuff, nDev, size, "With CUDA graph");
+  // printBufferValues(buff, printBuff, nDev, size, "With CUDA graph");
 
   // Free device buffers
   for (int i = 0; i < nDev; ++i) {
