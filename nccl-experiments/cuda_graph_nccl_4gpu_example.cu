@@ -26,8 +26,8 @@
 
 // CUDA kernel to multiply each element by 0.26
 __global__ void multiplyByFactor(float* data, int size) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < size) {
+  // int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < size; idx += 384*16) {
     data[idx] *= 0.251f;
   }
 }
@@ -35,8 +35,8 @@ __global__ void multiplyByFactor(float* data, int size) {
 void runWithoutCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev, int size) {
   auto start = std::chrono::high_resolution_clock::now();
 
-  int threadsPerBlock = 256;
-  int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
+  int threadsPerBlock = 384;
+  int blocksPerGrid = 16;
 
   for (int iter = 0; iter < ITER; ++iter) {
     // Multiply each element in buff by 0.26
@@ -66,8 +66,8 @@ void runWithoutCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int n
 }
 
 void runWithCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev, int size) {
-  int threadsPerBlock = 256;
-  int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
+  int threadsPerBlock = 384;
+  int blocksPerGrid = 16;
 
   cudaGraph_t graph;
   cudaGraphExec_t graphExec;
