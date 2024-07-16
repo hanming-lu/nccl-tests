@@ -4,6 +4,8 @@
 #include <nccl.h>
 #include <chrono>
 
+#define ITER 1000
+
 #define CUDACHECK(cmd) do {                         \
   cudaError_t err = cmd;                            \
   if (err != cudaSuccess) {                         \
@@ -23,10 +25,10 @@
 } while(0)
 
 // CUDA kernel to multiply each element by 0.26
-__global__ void multiplyByPointTwoSix(float* data, int size) {
+__global__ void multiplyByFactor(float* data, int size) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < size) {
-    data[idx] *= 0.26f;
+    data[idx] *= 0.251f;
   }
 }
 
@@ -36,13 +38,12 @@ void runWithoutCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int n
   int threadsPerBlock = 256;
   int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
 
-  for (int iter = 0; iter < 1000; ++iter) {
+  for (int iter = 0; iter < ITER; ++iter) {
     // Multiply each element in buff by 0.26
     for (int i = 0; i < nDev; ++i) {
       CUDACHECK(cudaSetDevice(i));
-      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock>>>(buff[i], size);
+      multiplyByFactor<<<blocksPerGrid, threadsPerBlock>>>(buff[i], size);
     }
-    CUDACHECK(cudaDeviceSynchronize());
 
     // calling NCCL communication API. Group API is required when using
     // multiple devices per thread
@@ -72,54 +73,50 @@ void runWithCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev
   cudaGraphExec_t graphExec;
 
   cudaStream_t captureStream;
-  cudaEvent_t  captureStreamFork1Event;
-  cudaEvent_t  captureStreamFork2Event;
+  cudaEvent_t  captureStreamForkEvent;
 
-  cudaEvent_t  privateStreamSync1Event[nDev];
-  cudaEvent_t  privateStreamSync2Event[nDev];
+  cudaEvent_t  privateStreamSyncEvent[nDev];
 
-  CUDACHECK(cudaEventCreate(&captureStreamFork1Event));
-  CUDACHECK(cudaEventCreate(&captureStreamFork2Event));
+  CUDACHECK(cudaEventCreate(&captureStreamForkEvent));
 
   for (int i = 0; i < nDev; ++i) {
-    CUDACHECK(cudaEventCreate(&privateStreamSync1Event[i]));
-    CUDACHECK(cudaEventCreate(&privateStreamSync2Event[i]));
+    CUDACHECK(cudaSetDevice(i));
+    CUDACHECK(cudaEventCreate(&privateStreamSyncEvent[i]));
   }
 
   CUDACHECK(cudaStreamCreate(&captureStream));
   CUDACHECK(cudaStreamBeginCapture(captureStream, cudaStreamCaptureModeGlobal));
+  
+  // fork from main
+  CUDACHECK(cudaEventRecord(captureStreamForkEvent, captureStream));
+  for (int i = 0; i < nDev; ++i) {
+    CUDACHECK(cudaSetDevice(i));
+    CUDACHECK(cudaStreamWaitEvent(s[i], captureStreamForkEvent));
+  }
 
-  for (int iter = 0; iter < 1000; ++iter) {
-    // put fork event in main stream
-    cudaEventRecord(captureStreamFork1Event, captureStream);
-
-    // Multiply each element in buff by 0.26
+  for (int iter = 0; iter < ITER; ++iter) {
+    // Multiply each element in buff by a factor
     for (int i = 0; i < nDev; ++i) {
       CUDACHECK(cudaSetDevice(i));
-      // make private streams wait for fork event
-      cudaStreamWaitEvent(s[i], captureStreamFork1Event);
-      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock, 0, s[i]>>>(buff[i], size);
-
-      // waits for all kernels in all streams to finish
-      cudaEventRecord(privateStreamSync1Event[i], s[i]);
-      cudaStreamWaitEvent(captureStream, privateStreamSync1Event[i]);
+      multiplyByFactor<<<blocksPerGrid, threadsPerBlock, 0, s[i]>>>(buff[i], size);
     }
 
-    // put sync event in main stream
-    cudaEventRecord(captureStreamFork2Event, captureStream);
     // calling NCCL communication API. Group API is required when using
     // multiple devices per thread
     NCCLCHECK(ncclGroupStart());
     for (int i = 0; i < nDev; ++i) {
-      // make private streams wait for sync event
-      cudaStreamWaitEvent(s[i], captureStreamFork2Event);
-
       NCCLCHECK(ncclAllReduce((const void*)buff[i], (void*)buff[i], size, ncclFloat, ncclSum,
           comms[i], s[i]));
-      cudaEventRecord(privateStreamSync2Event[i], s[i]);
-      cudaStreamWaitEvent(captureStream, privateStreamSync2Event[i]);
     }
     NCCLCHECK(ncclGroupEnd());
+  }
+
+  for (int i = 0; i < nDev; ++i) {
+    CUDACHECK(cudaSetDevice(i));
+    // put sync event in private stream
+    CUDACHECK(cudaEventRecord(privateStreamSyncEvent[i], s[i]));
+    // make main stream wait for sync event
+    CUDACHECK(cudaStreamWaitEvent(captureStream, privateStreamSyncEvent[i]));
   }
   
   CUDACHECK(cudaStreamEndCapture(captureStream, &graph));
@@ -138,11 +135,9 @@ void runWithCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev
   // clean up
   CUDACHECK(cudaGraphExecDestroy(graphExec));
   CUDACHECK(cudaGraphDestroy(graph));
-  CUDACHECK(cudaEventDestroy(captureStreamFork1Event));
-  CUDACHECK(cudaEventDestroy(captureStreamFork2Event));
+  CUDACHECK(cudaEventDestroy(captureStreamForkEvent));
   for (int i = 0; i < nDev; ++i) {
-    CUDACHECK(cudaEventDestroy(privateStreamSync1Event[i]));
-    CUDACHECK(cudaEventDestroy(privateStreamSync2Event[i]));
+    CUDACHECK(cudaEventDestroy(privateStreamSyncEvent[i]));
   }
 
   CUDACHECK(cudaStreamDestroy(captureStream));
