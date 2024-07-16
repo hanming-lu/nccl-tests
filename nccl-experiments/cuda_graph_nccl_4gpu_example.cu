@@ -30,6 +30,95 @@ __global__ void multiplyByPointTwoSix(float* data, int size) {
   }
 }
 
+void runWithoutCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev, int size) {
+  auto start = std::chrono::high_resolution_clock::now();
+
+  int threadsPerBlock = 256;
+  int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
+
+  for (int iter = 0; iter < 100; ++iter) {
+    // Multiply each element in buff by 0.26
+    for (int i = 0; i < nDev; ++i) {
+      CUDACHECK(cudaSetDevice(i));
+      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock>>>(buff[i], size);
+    }
+    CUDACHECK(cudaDeviceSynchronize());
+
+    // calling NCCL communication API. Group API is required when using
+    // multiple devices per thread
+    NCCLCHECK(ncclGroupStart());
+    for (int i = 0; i < nDev; ++i)
+      NCCLCHECK(ncclAllReduce((const void*)buff[i], (void*)buff[i], size, ncclFloat, ncclSum,
+          comms[i], s[i]));
+    NCCLCHECK(ncclGroupEnd());
+
+    // synchronizing on CUDA streams to wait for completion of NCCL operation
+    for (int i = 0; i < nDev; ++i) {
+      CUDACHECK(cudaSetDevice(i));
+      CUDACHECK(cudaStreamSynchronize(s[i]));
+    }
+  }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end - start;
+  printf("Time without CUDA graph: %f seconds\n", elapsed.count());
+}
+
+void runWithCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev, int size) {
+  int threadsPerBlock = 256;
+  int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
+
+  cudaGraph_t graph;
+  cudaGraphExec_t graphExec;
+
+  cudaStream_t captureStream;
+  CUDACHECK(cudaStreamCreate(&captureStream));
+  CUDACHECK(cudaStreamBeginCapture(captureStream, cudaStreamCaptureModeGlobal));
+
+  for (int iter = 0; iter < 100; ++iter) {
+    // Multiply each element in buff by 0.26
+    for (int i = 0; i < nDev; ++i) {
+      CUDACHECK(cudaSetDevice(i));
+      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock, 0, captureStream>>>(buff[i], size);
+    }
+
+    // calling NCCL communication API. Group API is required when using
+    // multiple devices per thread
+    NCCLCHECK(ncclGroupStart());
+    for (int i = 0; i < nDev; ++i)
+      NCCLCHECK(ncclAllReduce((const void*)buff[i], (void*)buff[i], size, ncclFloat, ncclSum,
+          comms[i], captureStream));
+    NCCLCHECK(ncclGroupEnd());
+  }
+  
+  CUDACHECK(cudaStreamEndCapture(captureStream, &graph));
+  CUDACHECK(cudaGraphInstantiate(&graphExec, graph, NULL, NULL, 0));
+
+  // Time measurement with CUDA graph
+  auto start = std::chrono::high_resolution_clock::now();
+
+  CUDACHECK(cudaGraphLaunch(graphExec, captureStream));
+  CUDACHECK(cudaStreamSynchronize(captureStream));
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end - start;
+  printf("Time with CUDA graph: %f seconds\n", elapsed.count());
+
+  CUDACHECK(cudaStreamDestroy(captureStream));
+}
+
+void printBufferValues(float** buff, float* hostBuff, int nDev, int size, const char* label) {
+  for (int i = 0; i < nDev; ++i) {
+    CUDACHECK(cudaSetDevice(i));
+    CUDACHECK(cudaMemcpy(hostBuff, buff[i], size * sizeof(float), cudaMemcpyDeviceToHost));
+    printf("%s - Buff of device %d:\n", label, i);
+    for (int j = 0; j < 10; ++j) { // Print only the first 10 elements for brevity
+      printf("%f ", hostBuff[j]);
+    }
+    printf("\n");
+  }
+}
+
 int main(int argc, char* argv[])
 {
   ncclComm_t comms[4];
@@ -59,120 +148,29 @@ int main(int argc, char* argv[])
   // initializing NCCL
   NCCLCHECK(ncclCommInitAll(comms, nDev, devs));
 
-  // Time measurement without CUDA graph
-  auto start = std::chrono::high_resolution_clock::now();
+  // Run without CUDA graph
+  runWithoutCudaGraph(buff, s, comms, nDev, size);
+  printBufferValues(buff, hostBuff, nDev, size, "Without CUDA graph");
 
-  int threadsPerBlock = 256;
-  int blocksPerGrid = (size + threadsPerBlock - 1) / threadsPerBlock;
-
-  for (int iter = 0; iter < 100; ++iter) {
-    // Multiply each element in buff by 0.26
-    for (int i = 0; i < nDev; ++i) {
-      CUDACHECK(cudaSetDevice(i));
-      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock>>>(buff[i], size);
-      CUDACHECK(cudaDeviceSynchronize());
-    }
-
-    // calling NCCL communication API. Group API is required when using
-    // multiple devices per thread
-    NCCLCHECK(ncclGroupStart());
-    for (int i = 0; i < nDev; ++i)
-      NCCLCHECK(ncclAllReduce((const void*)buff[i], (void*)buff[i], size, ncclFloat, ncclSum,
-          comms[i], s[i]));
-    NCCLCHECK(ncclGroupEnd());
-
-    // synchronizing on CUDA streams to wait for completion of NCCL operation
-    for (int i = 0; i < nDev; ++i) {
-      CUDACHECK(cudaSetDevice(i));
-      CUDACHECK(cudaStreamSynchronize(s[i]));
-    }
-  }
-
-  auto end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = end - start;
-  printf("Time without CUDA graph: %f seconds\n", elapsed.count());
-
-  // Print elements of buff
-  for (int i = 0; i < nDev; ++i) {
-    CUDACHECK(cudaSetDevice(i));
-    CUDACHECK(cudaMemcpy(hostBuff, buff[i], size * sizeof(float), cudaMemcpyDeviceToHost));
-    printf("Buff of device %d:\n", i);
-    for (int j = 0; j < 10; ++j) { // Print only the first 10 elements for brevity
-      printf("%f ", hostBuff[j]);
-    }
-    printf("\n");
-  }
-
-  
-  // Reset hostBuff with 1.0f
-  for (int i = 0; i < size; ++i) {
-    hostBuff[i] = 1.0f;
-  }
   // Reset buffers
   for (int i = 0; i < nDev; ++i) {
     CUDACHECK(cudaSetDevice(i));
     CUDACHECK(cudaMemcpy(buff[i], hostBuff, size * sizeof(float), cudaMemcpyHostToDevice));
   }
 
-  // CUDA graph setup
-  cudaGraph_t* graphs = (cudaGraph_t*)malloc(nDev * sizeof(cudaGraph_t));
-  cudaGraphExec_t* graphExecs = (cudaGraphExec_t*)malloc(nDev * sizeof(cudaGraphExec_t));
-
-  for (int i = 0; i < nDev; ++i) {
-    CUDACHECK(cudaSetDevice(i));
-    CUDACHECK(cudaStreamBeginCapture(s[i], cudaStreamCaptureModeGlobal));
-    for (int iter = 0; iter < 100; ++iter) {
-      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock, 0, s[i]>>>(buff[i], size);
-      // CUDACHECK(cudaStreamSynchronize(s[i]));
-
-      NCCLCHECK(ncclGroupStart());
-      NCCLCHECK(ncclAllReduce((const void*)buff[i], (void*)buff[i], size, ncclFloat, ncclSum, comms[i], s[i]));
-      NCCLCHECK(ncclGroupEnd());
-    }
-    CUDACHECK(cudaStreamEndCapture(s[i], &graphs[i]));
-    CUDACHECK(cudaGraphInstantiate(&graphExecs[i], graphs[i], NULL, NULL, 0));
-  }
-
-  // Time measurement with CUDA graph
-  start = std::chrono::high_resolution_clock::now();
-
-  for (int i = 0; i < nDev; ++i) {
-    CUDACHECK(cudaSetDevice(i));
-    CUDACHECK(cudaGraphLaunch(graphExecs[i], s[i]));
-  }
-  for (int i = 0; i < nDev; ++i) {
-    CUDACHECK(cudaSetDevice(i));
-    CUDACHECK(cudaStreamSynchronize(s[i]));
-  }
-
-  end = std::chrono::high_resolution_clock::now();
-  elapsed = end - start;
-  printf("Time with CUDA graph: %f seconds\n", elapsed.count());
-
-  // Print elements of buff
-  for (int i = 0; i < nDev; ++i) {
-    CUDACHECK(cudaSetDevice(i));
-    CUDACHECK(cudaMemcpy(hostBuff, buff[i], size * sizeof(float), cudaMemcpyDeviceToHost));
-    printf("Buff of device %d:\n", i);
-    for (int j = 0; j < 10; ++j) { // Print only the first 10 elements for brevity
-      printf("%f ", hostBuff[j]);
-    }
-    printf("\n");
-  }
+  // Run with CUDA graph
+  runWithCudaGraph(buff, s, comms, nDev, size);
+  printBufferValues(buff, hostBuff, nDev, size, "With CUDA graph");
 
   // Free device buffers
   for (int i = 0; i < nDev; ++i) {
     CUDACHECK(cudaSetDevice(i));
     CUDACHECK(cudaFree(buff[i]));
-    CUDACHECK(cudaGraphDestroy(graphs[i]));
-    CUDACHECK(cudaGraphExecDestroy(graphExecs[i]));
   }
 
   free(buff);
   free(hostBuff);
   free(s);
-  free(graphs);
-  free(graphExecs);
 
   // Finalizing NCCL
   for (int i = 0; i < nDev; ++i)
