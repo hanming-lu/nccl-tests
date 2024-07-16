@@ -72,22 +72,53 @@ void runWithCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev
   cudaGraphExec_t graphExec;
 
   cudaStream_t captureStream;
+  cudaEvent_t  captureStreamFork1Event;
+  cudaEvent_t  captureStreamFork2Event;
+
+  cudaEvent_t  privateStreamSync1Event[nDev];
+  cudaEvent_t  privateStreamSync2Event[nDev];
+
+  CUDACHECK(cudaEventCreate(&captureStreamFork1Event));
+  CUDACHECK(cudaEventCreate(&captureStreamFork2Event));
+
+  for (int i = 0; i < nDev; ++i) {
+    CUDACHECK(cudaEventCreate(&privateStreamSync1Event[i]));
+    CUDACHECK(cudaEventCreate(&privateStreamSync2Event[i]));
+  }
+
   CUDACHECK(cudaStreamCreate(&captureStream));
   CUDACHECK(cudaStreamBeginCapture(captureStream, cudaStreamCaptureModeGlobal));
 
   for (int iter = 0; iter < 100; ++iter) {
+    // put fork event in main stream
+    cudaEventRecord(captureStreamFork1Event, captureStream);
+
     // Multiply each element in buff by 0.26
     for (int i = 0; i < nDev; ++i) {
       CUDACHECK(cudaSetDevice(i));
-      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock, 0, captureStream>>>(buff[i], size);
+      // make private streams wait for fork event
+      cudaStreamWaitEvent(s[i], captureStreamFork1Event);
+      multiplyByPointTwoSix<<<blocksPerGrid, threadsPerBlock, 0, s[i]>>>(buff[i], size);
+
+      // waits for all kernels in all streams to finish
+      cudaEventRecord(privateStreamSync1Event[i], s[i]);
+      cudaStreamWaitEvent(captureStream, privateStreamSync1Event[i]);
     }
 
+    // put sync event in main stream
+    cudaEventRecord(captureStreamFork2Event, captureStream);
     // calling NCCL communication API. Group API is required when using
     // multiple devices per thread
     NCCLCHECK(ncclGroupStart());
-    for (int i = 0; i < nDev; ++i)
+    for (int i = 0; i < nDev; ++i) {
+      // make private streams wait for sync event
+      cudaStreamWaitEvent(s[i], captureStreamFork2Event);
+
       NCCLCHECK(ncclAllReduce((const void*)buff[i], (void*)buff[i], size, ncclFloat, ncclSum,
-          comms[i], captureStream));
+          comms[i], s[i]));
+      cudaEventRecord(privateStreamSync2Event[i], s[i]);
+      cudaStreamWaitEvent(captureStream, privateStreamSync2Event[i]);
+    }
     NCCLCHECK(ncclGroupEnd());
   }
   
@@ -103,6 +134,16 @@ void runWithCudaGraph(float** buff, cudaStream_t* s, ncclComm_t* comms, int nDev
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = end - start;
   printf("Time with CUDA graph: %f seconds\n", elapsed.count());
+
+  // clean up
+  CUDACHECK(cudaGraphExecDestroy(graphExec));
+  CUDACHECK(cudaGraphDestroy(graph));
+  CUDACHECK(cudaEventDestroy(captureStreamFork1Event));
+  CUDACHECK(cudaEventDestroy(captureStreamFork2Event));
+  for (int i = 0; i < nDev; ++i) {
+    CUDACHECK(cudaEventDestroy(privateStreamSync1Event[i]));
+    CUDACHECK(cudaEventDestroy(privateStreamSync2Event[i]));
+  }
 
   CUDACHECK(cudaStreamDestroy(captureStream));
 }
@@ -131,6 +172,7 @@ int main(int argc, char* argv[])
   // allocating and initializing device buffers
   float** buff = (float**)malloc(nDev * sizeof(float*));
   float* hostBuff = (float*)malloc(size * sizeof(float));
+  float* printBuff = (float*)malloc(size * sizeof(float));
   cudaStream_t* s = (cudaStream_t*)malloc(sizeof(cudaStream_t)*nDev);
 
   // Initialize hostBuff with 1.0f
@@ -150,7 +192,7 @@ int main(int argc, char* argv[])
 
   // Run without CUDA graph
   runWithoutCudaGraph(buff, s, comms, nDev, size);
-  printBufferValues(buff, hostBuff, nDev, size, "Without CUDA graph");
+  printBufferValues(buff, printBuff, nDev, size, "Without CUDA graph");
 
   // Reset buffers
   for (int i = 0; i < nDev; ++i) {
@@ -160,7 +202,7 @@ int main(int argc, char* argv[])
 
   // Run with CUDA graph
   runWithCudaGraph(buff, s, comms, nDev, size);
-  printBufferValues(buff, hostBuff, nDev, size, "With CUDA graph");
+  printBufferValues(buff, printBuff, nDev, size, "With CUDA graph");
 
   // Free device buffers
   for (int i = 0; i < nDev; ++i) {
@@ -170,11 +212,13 @@ int main(int argc, char* argv[])
 
   free(buff);
   free(hostBuff);
+  free(printBuff);
   free(s);
 
   // Finalizing NCCL
-  for (int i = 0; i < nDev; ++i)
+  for (int i = 0; i < nDev; ++i) {
     ncclCommDestroy(comms[i]);
+  }
 
   printf("Success \n");
   return 0;
