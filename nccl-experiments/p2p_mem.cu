@@ -30,8 +30,13 @@ __global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* d
             dest2[gpu_idx*elementsPerGPU+idx] = src[idx];
             dest3[gpu_idx*elementsPerGPU+idx] = src[idx];
         }
+        
         // sync
-        d_coordinator->arrive_and_wait();
+        __syncthreads();
+        if (threadIdx.x == 0) {
+            d_coordinator->arrive_and_wait();
+        }
+        __syncthreads();
 
         // operate on data
         for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
@@ -41,8 +46,13 @@ __global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* d
                 printf("gpu_idx: %d, ((gpu_idx+1)%4)*elementsPerGPU+idx: %d, src[0]: %f\n", gpu_idx, ((gpu_idx+1)%4)*elementsPerGPU+idx, src[0]);
             }
         }
+
         // sync
-        d_coordinator->arrive_and_wait();
+        __syncthreads();
+        if (threadIdx.x == 0) {
+            d_coordinator->arrive_and_wait();
+        }
+        __syncthreads();
     }
 }
 
@@ -56,7 +66,7 @@ int main() {
     float factor = 1.0f; // Factor to multiply each component
     Coordinator *d_coordinator;
     cudaMalloc((void**)&d_coordinator, sizeof(Coordinator));
-    init_coordinator<<<1, 1>>>(d_coordinator, BlocksPerGrid * numGPUs * ThreadsPerBlock);
+    init_coordinator<<<1, 1>>>(d_coordinator, BlocksPerGrid * numGPUs);
 
     cudaStream_t streams[numGPUs];
 
