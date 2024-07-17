@@ -17,7 +17,7 @@ __global__ void SetupKernel(float* data, int offset, int elementsPerGPU) {
 
 // Kernel to perform multiplication and allgather operation
 __global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* dest2, float* dest3, float* src, int gpu_idx, int elementsPerGPU, float factor, Coordinator *coordinator) {
-    for (int iter = 0; iter < 1; ++iter) {
+    for (int iter = 0; iter < 10; ++iter) {
         // allgather   
         for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
             src[idx] *= factor;
@@ -34,11 +34,10 @@ __global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* d
         }
 
         // operate on data
-        // for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU * 4; idx += ThreadsPerBlock*BlocksPerGrid) {
-        //     // myDest[idx] *= 1.1f;
-        //     // src[idx] = myDest[((gpu_idx+1)%4)*elementsPerGPU+idx]*0.99f;
-        //     myDest[idx] = 1.1f;
-        // }
+        for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
+            // uncomment after sync works -> should see non-zeros in the output now
+            // src[idx] = myDest[((gpu_idx+1)%4)*elementsPerGPU+idx];
+        }
     }
 }
 
