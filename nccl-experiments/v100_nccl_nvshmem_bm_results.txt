@@ -1,0 +1,207 @@
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 1
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 1
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.029785 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.029784 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.029783 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.029784 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 2
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 2
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.055146 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.055143 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.055143 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.055146 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 4
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 4
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.128745 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.128751 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.128747 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.128751 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 8
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 8
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.295505 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.295508 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.295505 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.295507 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 16
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 16
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.910476 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.910477 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.910479 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 0.910478 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 32
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 32
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 1.049078 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 1.049063 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 1.049070 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 1.049078 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 64
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 64
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 2.358966 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 2.358966 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 2.358968 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 2.358966 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 128
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 128
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 4.986320 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 4.986320 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 4.986318 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 4.986319 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 256
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 256
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 7.340229 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 7.340226 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 7.340229 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 7.340233 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 512
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 512
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 15.198470 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 15.198427 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 15.198402 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 15.198450 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 1024
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 1024
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 28.310533 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 28.310512 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 28.310556 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 28.310578 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 2048
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 2048
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 55.127987 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 55.127964 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 55.128026 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 55.128008 seconds
+
+Running: nvshmrun -n 4 -ppn 4 ./nvsh_gather_customize 4096
+NUM_BLOCKS: 32, NUM_THREADS_PER_BLOCK: 384, bs: 4096
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+WARN: init failed for remote transport: ibrc
+PE 0 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 109.075963 seconds
+PE 1 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 109.075916 seconds
+PE 2 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 109.076012 seconds
+PE 3 - Time taken for customized All Gather customized (using nvshmem) 1000 iterations: 109.075987 seconds
+
+Running: ./nccl_gather 1
+Time without CUDA graph: 0.054817 seconds
+Time with CUDA graph: 0.017670 seconds
+Success 
+
+Running: ./nccl_gather 2
+Time without CUDA graph: 0.058971 seconds
+Time with CUDA graph: 0.018015 seconds
+Success 
+
+Running: ./nccl_gather 4
+Time without CUDA graph: 0.062183 seconds
+Time with CUDA graph: 0.017859 seconds
+Success 
+
+Running: ./nccl_gather 8
+Time without CUDA graph: 0.066119 seconds
+Time with CUDA graph: 0.026237 seconds
+Success 
+
+Running: ./nccl_gather 16
+Time without CUDA graph: 0.076353 seconds
+Time with CUDA graph: 0.034925 seconds
+Success 
+
+Running: ./nccl_gather 32
+Time without CUDA graph: 0.085516 seconds
+Time with CUDA graph: 0.051334 seconds
+Success 
+
+Running: ./nccl_gather 64
+Time without CUDA graph: 0.096464 seconds
+Time with CUDA graph: 0.061864 seconds
+Success 
+
+Running: ./nccl_gather 128
+Time without CUDA graph: 0.116124 seconds
+Time with CUDA graph: 0.085475 seconds
+Success 
+
+Running: ./nccl_gather 256
+Time without CUDA graph: 0.148492 seconds
+Time with CUDA graph: 0.137286 seconds
+Success 
+
+Running: ./nccl_gather 512
+Time without CUDA graph: 0.221130 seconds
+Time with CUDA graph: 0.207660 seconds
+Success 
+
+Running: ./nccl_gather 1024
+Time without CUDA graph: 0.361974 seconds
+Time with CUDA graph: 0.352881 seconds
+Success 
+
+Running: ./nccl_gather 2048
+Time without CUDA graph: 0.642639 seconds
+Time with CUDA graph: 0.643549 seconds
+Success 
+
+Running: ./nccl_gather 4096
+Time without CUDA graph: 1.236753 seconds
+Time with CUDA graph: 1.239203 seconds
+Success 
