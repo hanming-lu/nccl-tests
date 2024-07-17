@@ -4,7 +4,7 @@
 
 #define ITER 1000
 #define ThreadsPerBlock 384
-#define BlocksPerGrid 32
+#define BlocksPerGrid 128
 typedef cuda::barrier<cuda::thread_scope_system> Coordinator;
 
 
