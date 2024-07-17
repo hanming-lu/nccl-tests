@@ -14,30 +14,35 @@ __global__ void SetupKernel(float* data, int offset, int elementsPerGPU) {
         data[idx] = idx + offset;
     }
 }
+__global__ void init_coordinator(Coordinator* d_coordinator, int n) {
+    new (d_coordinator) Coordinator(n);
+}
 
 // Kernel to perform multiplication and allgather operation
-__global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* dest2, float* dest3, float* src, int gpu_idx, int elementsPerGPU, float factor, Coordinator *coordinator) {
+__global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* dest2, float* dest3, float* src, int gpu_idx, int elementsPerGPU, float factor, Coordinator *d_coordinator) {
     for (int iter = 0; iter < 10; ++iter) {
+        
         // allgather   
         for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
             src[idx] *= factor;
-            // myDest[gpu_idx*elementsPerGPU+idx] = src[idx]; // not needed
+            myDest[gpu_idx*elementsPerGPU+idx] = src[idx]; // not needed
             dest1[gpu_idx*elementsPerGPU+idx] = src[idx];
             dest2[gpu_idx*elementsPerGPU+idx] = src[idx];
             dest3[gpu_idx*elementsPerGPU+idx] = src[idx];
         }
         // sync
-        if (threadIdx.x == 0) {
-            __syncthreads();
-            // coordinator->arrive_and_wait();
-            __syncthreads();
-        }
+        d_coordinator->arrive_and_wait();
 
         // operate on data
         for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
             // uncomment after sync works -> should see non-zeros in the output now
-            // src[idx] = myDest[((gpu_idx+1)%4)*elementsPerGPU+idx];
+            src[idx] = myDest[((gpu_idx+1)%4)*elementsPerGPU+idx];
+            if (idx == 0) {
+                printf("gpu_idx: %d, ((gpu_idx+1)%4)*elementsPerGPU+idx: %d, src[0]: %f\n", gpu_idx, ((gpu_idx+1)%4)*elementsPerGPU+idx, src[0]);
+            }
         }
+        // sync
+        d_coordinator->arrive_and_wait();
     }
 }
 
@@ -49,7 +54,9 @@ int main() {
     float* d_allData[numGPUs];
     float* h_data = new float[numGPUs * elementsPerGPU];
     float factor = 1.0f; // Factor to multiply each component
-    Coordinator coordinator(numGPUs * BlocksPerGrid);
+    Coordinator *d_coordinator;
+    cudaMalloc((void**)&d_coordinator, sizeof(Coordinator));
+    init_coordinator<<<1, 1>>>(d_coordinator, BlocksPerGrid * numGPUs * ThreadsPerBlock);
 
     cudaStream_t streams[numGPUs];
 
@@ -76,7 +83,7 @@ int main() {
     // Perform multiplication and allgather operation
     for (int i = 0; i < numGPUs; ++i) {
         cudaSetDevice(i);
-        MultiplyAndAllGatherKernel<<<BlocksPerGrid, ThreadsPerBlock, 0, streams[i]>>>(d_allData[i], d_allData[(i+1)%numGPUs], d_allData[(i+2)%numGPUs], d_allData[(i+3)%numGPUs], d_data[i], i, elementsPerGPU, factor, &coordinator);
+        MultiplyAndAllGatherKernel<<<BlocksPerGrid, ThreadsPerBlock, 0, streams[i]>>>(d_allData[i], d_allData[(i+1)%numGPUs], d_allData[(i+2)%numGPUs], d_allData[(i+3)%numGPUs], d_data[i], i, elementsPerGPU, factor, d_coordinator);
     }
     cudaDeviceSynchronize();
     
