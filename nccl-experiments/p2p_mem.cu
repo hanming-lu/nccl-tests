@@ -20,7 +20,7 @@ __global__ void init_coordinator(Coordinator* d_coordinator, int n) {
 
 // Kernel to perform multiplication and allgather operation
 __global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* dest2, float* dest3, float* src, int gpu_idx, int elementsPerGPU, float factor, Coordinator *d_coordinator) {
-    for (int iter = 0; iter < 1000; ++iter) {
+    for (int iter = 0; iter < ITER; ++iter) {
         // allgather   
         for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
             src[idx] *= factor;
