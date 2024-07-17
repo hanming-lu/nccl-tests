@@ -4,7 +4,7 @@
 
 #define ITER 1000
 #define ThreadsPerBlock 384
-#define BlocksPerGrid 128
+#define BlocksPerGrid 32
 typedef cuda::barrier<cuda::thread_scope_system> Coordinator;
 
 
@@ -19,21 +19,15 @@ __global__ void init_coordinator(Coordinator* d_coordinator, int n) {
 }
 
 // Kernel to perform multiplication and allgather operation
-__global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* dest2, float* dest3, 
-    float* dest4, float* dest5, float* dest6, float* dest7, 
+__global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* dest2, float* dest3,
     float* src, int gpu_idx, int elementsPerGPU, float factor, Coordinator *d_coordinator) {
     for (int iter = 0; iter < ITER; ++iter) {
         // allgather   
         for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
-            src[idx] *= factor;
             // myDest[gpu_idx*elementsPerGPU+idx] = src[idx]; // not needed
             dest1[gpu_idx*elementsPerGPU+idx] = src[idx];
             dest2[gpu_idx*elementsPerGPU+idx] = src[idx];
             dest3[gpu_idx*elementsPerGPU+idx] = src[idx];
-            dest4[gpu_idx*elementsPerGPU+idx] = src[idx];
-            dest5[gpu_idx*elementsPerGPU+idx] = src[idx];
-            dest6[gpu_idx*elementsPerGPU+idx] = src[idx];
-            dest7[gpu_idx*elementsPerGPU+idx] = src[idx];
         }
 
         // sync
@@ -46,7 +40,7 @@ __global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* d
         // operate on data
         for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
             // uncomment after sync works -> should see non-zeros in the output now
-            src[idx] *= 0.99f;
+            src[idx] *= 1.0f;
         }
     }
 }
@@ -63,7 +57,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
     const int totalElements = 8192 * bs;
-    const int numGPUs = 8;
+    const int numGPUs = 4;
     const int elementsPerGPU = totalElements / numGPUs;
     size_t size = elementsPerGPU * sizeof(float);
     float* d_data[numGPUs];
@@ -101,8 +95,7 @@ int main(int argc, char* argv[])
     for (int i = 0; i < numGPUs; ++i) {
         cudaSetDevice(i);
         MultiplyAndAllGatherKernel<<<BlocksPerGrid, ThreadsPerBlock, 0, streams[i]>>>(
-            d_allData[i], d_allData[(i+1)%numGPUs], d_allData[(i+2)%numGPUs], d_allData[(i+3)%numGPUs], 
-            d_allData[(i+4)%numGPUs], d_allData[(i+5)%numGPUs], d_allData[(i+6)%numGPUs], d_allData[(i+7)%numGPUs],
+            d_allData[i], d_allData[(i+1)%numGPUs], d_allData[(i+2)%numGPUs], d_allData[(i+3)%numGPUs],
             d_data[i], i, elementsPerGPU, factor, d_coordinator);
     }
     cudaDeviceSynchronize();
@@ -123,7 +116,7 @@ int main(int argc, char* argv[])
     // Copy data back to host and print
     // for (int i = 0; i < numGPUs; ++i) {
     //     cudaMemcpy(h_data, d_allData[i], numGPUs * size, cudaMemcpyDeviceToHost);
-    //     if (i == 6) {
+    //     if (i == 2) {
     //         std::cout << "Values in gathered data:" << std::endl;
     //         for (int i = 0; i < numGPUs * elementsPerGPU; ++i) {
     //             std::cout << h_data[i] << " ";
