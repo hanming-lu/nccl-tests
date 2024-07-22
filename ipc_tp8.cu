@@ -46,6 +46,12 @@ __global__ void MultiplyAndAllGatherKernel(float* myDest, float* dest1, float* d
             d_coordinator->arrive_and_wait();
         }
         __syncthreads();
+
+        // operate on data
+        for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < elementsPerGPU; idx += ThreadsPerBlock*BlocksPerGrid) {
+            // uncomment after sync works -> should see non-zeros in the output now
+            src[idx] *= 0.99f;
+        }
     }
 }
 
